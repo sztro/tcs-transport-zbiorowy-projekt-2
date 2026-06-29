@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <iostream>
 #include <string>
+#include <chrono>
 
 namespace fs = std::filesystem;
 
@@ -59,21 +60,31 @@ int main(int argc, char** argv) {
         std::cout << "Transfers: " << network.transfers.size() << "\n";
 
         // === TEST CSA ===
-        // bierzemy pierwszy lepszy przystanek z sieci jako startowy
         if (!network.stops.empty()) {
             std::string start_stop = network.stops.front().stop_id;
             int start_time = 8 * 3600; // 8:00 rano
             
-            std::cout << "\nRunning CSA from stop " << start_stop << " at 8:00 AM...\n";
-            auto arrivals = gtfs::runEarliestArrivalCSA(network, start_stop, start_time);
+            const int num_runs = 5; // Liczba prób
+            double total_duration_ms = 0.0;
             
-            int reachable_stops = 0;
-            for (const auto& [stop_id, arrival_time] : arrivals) {
-                if (arrival_time != gtfs::kInfinity) {
-                    reachable_stops++;
-                }
+            std::cout << "\nProbing CSA performance (" << num_runs << " runs) from stop " << start_stop << "...\n";
+            
+            for (int i = 0; i < num_runs; ++i) {
+                auto start_clock = std::chrono::high_resolution_clock::now();
+                
+                auto arrivals = gtfs::runEarliestArrivalCSA(network, start_stop, start_time);
+                
+                auto end_clock = std::chrono::high_resolution_clock::now();
+                
+                std::chrono::duration<double, std::milli> elapsed = end_clock - start_clock;
+                
+                std::cout << "  Run #" << (i + 1) << ": " << elapsed.count() << " ms\n";
+                total_duration_ms += elapsed.count();
             }
-            std::cout << "Reachable stops: " << reachable_stops << " / " << network.stops.size() << "\n";
+            
+            std::cout << "---------------------------------------\n";
+            std::cout << "Total time for " << num_runs << " queries: " << total_duration_ms << " ms\n";
+            std::cout << "Average time per query: " << (total_duration_ms / num_runs) << " ms\n";
         }
         // ----------------------
     } catch (const std::exception& error) {

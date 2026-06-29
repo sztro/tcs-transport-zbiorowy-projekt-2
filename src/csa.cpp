@@ -42,18 +42,20 @@ std::unordered_map<std::string, int> runEarliestArrivalCSA(
         }
     }
 
-    // Krok 2 - Setup c.d.
-    // Pobranie i posortowanie wszystkich połączeń po cdep_time (departure_seconds)
-    // W zoptymalizowanej wersji to sortowanie powinno się odbywać raz, podczas budowy sieci.
-    std::vector<TripSegmentConnection> connections = network.trip_segments;
-    std::sort(connections.begin(), connections.end(), 
-        [](const TripSegmentConnection& a, const TripSegmentConnection& b) {
-            return a.departure_seconds < b.departure_seconds;
+    /// Krok 2: Znalezienie pierwszego połączenia po czasie startowym (binsearch, bo połączenia są posortowane)
+    auto start_it = std::lower_bound(
+        network.trip_segments.begin(), 
+        network.trip_segments.end(), 
+        start_time_seconds,
+        [](const TripSegmentConnection& connection, int time) {
+            return connection.departure_seconds < time;
         }
     );
 
     // Krok 3 - Główna pętla CSA
-    for (const auto& c : connections) {
+    for (auto it = start_it; it != network.trip_segments.end(); ++it) {
+        const auto& c = *it;
+
         // Ignorujemy połączenia z przeszłości
         if (c.departure_seconds < start_time_seconds) {
             continue;
@@ -64,7 +66,6 @@ std::unordered_map<std::string, int> runEarliestArrivalCSA(
             T[c.trip_id] = true;
 
             // Przeglądamy każde przejście piesze z carr_stop
-            
             if (auto it = transfers_from.find(c.to_stop_id); it != transfers_from.end()) {
                 for (const auto& f : it->second) {
                     int arrival_by_foot = c.arrival_seconds + f.walking_seconds;

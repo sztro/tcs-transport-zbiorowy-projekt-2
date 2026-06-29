@@ -371,6 +371,14 @@ Network buildNetwork(const std::vector<std::string>& directories, const BuildOpt
 
     network.stop_times = std::move(merged_stop_times);
     network.transfers = buildTransfers(network.stops, options);
+
+    // Posortuj połączenia (do CSA)
+    std::sort(network.trip_segments.begin(), network.trip_segments.end(),
+        [](const TripSegmentConnection& a, const TripSegmentConnection& b) {
+            return a.departure_seconds < b.departure_seconds;
+        }
+    );
+
     return network;
 }
 
