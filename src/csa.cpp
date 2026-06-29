@@ -13,6 +13,7 @@ namespace gtfs {
 std::unordered_map<std::string, int> runEarliestArrivalCSA(
     const Network& network, 
     const std::string& source_stop_id, 
+    const std::string& target_stop_id,
     int start_time_seconds) 
 {
     // S[x] -> najwcześniejszy czas przyjazdu
@@ -56,14 +57,18 @@ std::unordered_map<std::string, int> runEarliestArrivalCSA(
     for (auto it = start_it; it != network.trip_segments.end(); ++it) {
         const auto& c = *it;
 
-        // Ignorujemy połączenia z przeszłości
-        if (c.departure_seconds < start_time_seconds) {
-            continue;
+        // Wszystko dalej już nas nie interesuje, kończymy
+        if (S[target_stop_id] <= c.departure_seconds) {
+            break;
         }
 
         if (S[c.from_stop_id] <= c.departure_seconds || T[c.trip_id]) {
             // Connection jest osiągalny, ustawiamy rzeczy
             T[c.trip_id] = true;
+
+            if(c.arrival_seconds >= S[c.to_stop_id]) {
+                continue;
+            }
 
             // Przeglądamy każde przejście piesze z carr_stop
             if (auto it = transfers_from.find(c.to_stop_id); it != transfers_from.end()) {
