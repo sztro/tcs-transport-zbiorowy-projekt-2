@@ -1,4 +1,5 @@
 #include "gtfs_connections.hpp"
+#include "csa.hpp"
 
 #include <filesystem>
 #include <iostream>
@@ -56,6 +57,25 @@ int main(int argc, char** argv) {
         std::cout << "Stop times: " << network.stop_times.size() << "\n";
         std::cout << "Trip segments: " << network.trip_segments.size() << "\n";
         std::cout << "Transfers: " << network.transfers.size() << "\n";
+
+        // === TEST CSA ===
+        // bierzemy pierwszy lepszy przystanek z sieci jako startowy
+        if (!network.stops.empty()) {
+            std::string start_stop = network.stops.front().stop_id;
+            int start_time = 8 * 3600; // 8:00 rano
+            
+            std::cout << "\nRunning CSA from stop " << start_stop << " at 8:00 AM...\n";
+            auto arrivals = gtfs::runEarliestArrivalCSA(network, start_stop, start_time);
+            
+            int reachable_stops = 0;
+            for (const auto& [stop_id, arrival_time] : arrivals) {
+                if (arrival_time != gtfs::kInfinity) {
+                    reachable_stops++;
+                }
+            }
+            std::cout << "Reachable stops: " << reachable_stops << " / " << network.stops.size() << "\n";
+        }
+        // ----------------------
     } catch (const std::exception& error) {
         std::cerr << "Failed to build network: " << error.what() << "\n";
         return 1;
