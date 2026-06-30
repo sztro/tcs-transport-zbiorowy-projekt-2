@@ -333,6 +333,96 @@ std::vector<GtfsFeed> loadFeeds(const std::vector<std::string>& directories) {
     return feeds;
 }
 
+TimeDependentGraph buildTimeDependentGraph(const Network& network) {
+    TimeDependentGraph graph;
+    graph.stop_ids.reserve(network.stops.size());
+    graph.stop_index_by_id.reserve(network.stops.size());
+
+    for (std::size_t index = 0; index < network.stops.size(); ++index) {
+        const auto& stop = network.stops[index];
+        graph.stop_ids.push_back(stop.stop_id);
+        if (!stop.stop_id.empty()) {
+            graph.stop_index_by_id[stop.stop_id] = index;
+        }
+    }
+
+    struct IndexedEdge {
+        std::size_t from = 0;
+        TimeDependentGraphEdge edge;
+    };
+
+    std::vector<IndexedEdge> indexed_edges;
+    indexed_edges.reserve(network.trip_segments.size() + network.transfers.size());
+
+    for (const auto& connection : network.trip_segments) {
+        const auto from_it = graph.stop_index_by_id.find(connection.from_stop_id);
+        const auto to_it = graph.stop_index_by_id.find(connection.to_stop_id);
+        if (from_it == graph.stop_index_by_id.end() || to_it == graph.stop_index_by_id.end()) {
+            continue;
+        }
+        if (connection.departure_seconds < 0 || connection.arrival_seconds < 0) {
+            continue;
+        }
+
+        IndexedEdge edge;
+        edge.from = from_it->second;
+        edge.edge.to = static_cast<std::uint32_t>(to_it->second);
+        edge.edge.departure_seconds = connection.departure_seconds;
+        edge.edge.arrival_seconds = connection.arrival_seconds;
+        edge.edge.travel_seconds = connection.travel_seconds;
+        edge.edge.is_transfer = false;
+        indexed_edges.push_back(std::move(edge));
+    }
+
+    for (const auto& transfer : network.transfers) {
+        const auto from_it = graph.stop_index_by_id.find(transfer.from_stop_id);
+        const auto to_it = graph.stop_index_by_id.find(transfer.to_stop_id);
+        if (from_it == graph.stop_index_by_id.end() || to_it == graph.stop_index_by_id.end()) {
+            continue;
+        }
+        if (transfer.walking_seconds < 0) {
+            continue;
+        }
+
+        IndexedEdge edge;
+        edge.from = from_it->second;
+        edge.edge.to = static_cast<std::uint32_t>(to_it->second);
+        edge.edge.travel_seconds = transfer.walking_seconds;
+        edge.edge.is_transfer = true;
+        indexed_edges.push_back(std::move(edge));
+    }
+
+    std::sort(indexed_edges.begin(), indexed_edges.end(), [](const IndexedEdge& lhs, const IndexedEdge& rhs) {
+        if (lhs.from != rhs.from) {
+            return lhs.from < rhs.from;
+        }
+        if (lhs.edge.is_transfer != rhs.edge.is_transfer) {
+            return lhs.edge.is_transfer < rhs.edge.is_transfer;
+        }
+        if (lhs.edge.departure_seconds != rhs.edge.departure_seconds) {
+            return lhs.edge.departure_seconds < rhs.edge.departure_seconds;
+        }
+        return lhs.edge.to < rhs.edge.to;
+    });
+
+    graph.offsets.assign(graph.stop_ids.size() + 1, 0);
+    graph.edges.reserve(indexed_edges.size());
+
+    std::size_t current_from = 0;
+    for (const auto& edge : indexed_edges) {
+        while (current_from <= edge.from && current_from < graph.offsets.size()) {
+            graph.offsets[current_from] = graph.edges.size();
+            ++current_from;
+        }
+        graph.edges.push_back(edge.edge);
+    }
+    while (current_from < graph.offsets.size()) {
+        graph.offsets[current_from] = graph.edges.size();
+        ++current_from;
+    }
+
+    return graph;
+}
 Network buildNetwork(const std::vector<std::string>& directories, const BuildOptions& options) {
     const auto feeds = loadFeeds(directories);
     Network network;
@@ -378,6 +468,8 @@ Network buildNetwork(const std::vector<std::string>& directories, const BuildOpt
             return a.departure_seconds < b.departure_seconds;
         }
     );
+
+    network.time_dependent_graph = buildTimeDependentGraph(network);
 
     return network;
 }

@@ -1,4 +1,5 @@
 #include "gtfs_connections.hpp"
+#include "td_dijkstra.hpp"
 #include "csa.hpp"
 
 #include <filesystem>
@@ -8,13 +9,12 @@
 #include <random>
 #include <iomanip>
 
-namespace fs = std::filesystem;
 
 namespace {
 
 void printUsage(const char* program_name) {
     std::cerr << "Usage: " << program_name
-              << " [data_root] [walking_speed_mps] [max_transfer_distance_m]\n"
+              << " [data_root] [walking_speed_mps] [max_transfer_distance_m] [algorithm]\n"
               << "Defaults: data_root=./data, walking_speed_mps=1.4, max_transfer_distance_m=500\n";
 }
 
@@ -32,11 +32,16 @@ double parseDouble(const char* text, double fallback) {
 }  // namespace
 
 int main(int argc, char** argv) {
-    const fs::path data_root = argc >= 2 ? fs::path(argv[1]) : fs::path("data");
+    const std::filesystem::path data_root = argc >= 2 ? std::filesystem::path(argv[1]) : std::filesystem::path("data");
     const double walking_speed_mps = argc >= 3 ? parseDouble(argv[2], 1.4) : 1.4;
     const double max_transfer_distance_m = argc >= 4 ? parseDouble(argv[3], 500.0) : 500.0;
-
-    if (argc > 4) {
+    const std::string algorithm = argc >= 5 ? argv[4] : "td_dijkstra";
+    if (algorithm != "td_dijkstra" && algorithm != "csa") {
+        std::cerr << "Invalid algorithm specified: " << algorithm << "\n";
+        printUsage(argv[0]);
+        return 1;
+    }
+    if (argc > 5) {
         printUsage(argv[0]);
         return 1;
     }
@@ -60,8 +65,10 @@ int main(int argc, char** argv) {
         std::cout << "Stop times: " << network.stop_times.size() << "\n";
         std::cout << "Trip segments: " << network.trip_segments.size() << "\n";
         std::cout << "Transfers: " << network.transfers.size() << "\n";
+        std::cout << "TD graph nodes: " << network.time_dependent_graph.stop_ids.size() << "\n";
+        std::cout << "TD graph edges: " << network.time_dependent_graph.edges.size() << "\n";
 
-        // === TEST CSA ===
+        // === TEST time-dependent Dijkstra ===
         if (!network.stops.empty()) {
             const int num_runs = 5;
             double total_duration_ms = 0.0;
@@ -72,11 +79,11 @@ int main(int argc, char** argv) {
             std::mt19937 gen(rd());
             std::uniform_int_distribution<std::size_t> stop_dist(0, network.stops.size() - 1);
             
-            std::cout << "\nProbing CSA performance (" << num_runs << " random S->T queries)...\n";
+            std::cout << "\nProbing " << algorithm << " (" << num_runs << " random S->T queries)...\n";
             
             gtfs::Stop last_source;
             gtfs::Stop last_target;
-            int last_arrival_time = gtfs::kInfinity;
+            int last_arrival_time = gtfs::kTimeDependentInfinity;
 
             for (int i = 0; i < num_runs; ++i) {
                 // Losowanie przystanku początkowego i końcowego
@@ -84,8 +91,13 @@ int main(int argc, char** argv) {
                 const gtfs::Stop& target = network.stops[stop_dist(gen)];
                 
                 auto start_clock = std::chrono::high_resolution_clock::now();
-                
-                auto arrivals = gtfs::runEarliestArrivalCSA(network, source.stop_id, target.stop_id, start_time);
+                auto arrivals = std::unordered_map<std::string, int>();
+                if(algorithm == "td_dijkstra") {
+                    arrivals = gtfs::runEarliestArrivalTimeDependentDijkstra(network.time_dependent_graph, source.stop_id, target.stop_id, start_time);
+                } else if(algorithm == "csa") {
+                    arrivals = gtfs::runEarliestArrivalCSA(network, source.stop_id, target.stop_id, start_time);
+                }
+            
                 
                 auto end_clock = std::chrono::high_resolution_clock::now();
                 std::chrono::duration<double, std::milli> elapsed = end_clock - start_clock;
@@ -119,7 +131,7 @@ int main(int argc, char** argv) {
             std::cout << "Czas odjazdu: 08:00:00\n";
             std::cout << "Czas dojazdu: ";
             
-            if (last_arrival_time == gtfs::kInfinity) {
+            if (last_arrival_time == gtfs::kTimeDependentInfinity) {
                 std::cout << "BRAK POLACZENIA (Cel nieosiagalny)\n";
             } else {
                 int h = (last_arrival_time / 3600) % 24;

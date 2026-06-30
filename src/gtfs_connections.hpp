@@ -52,12 +52,28 @@ struct TransferConnection {
     int walking_seconds = -1;
 };
 
+struct TimeDependentGraphEdge {
+    std::uint32_t to = 0;
+    int departure_seconds = -1;
+    int arrival_seconds = -1;
+    int travel_seconds = -1;
+    bool is_transfer = false;
+};
+
+struct TimeDependentGraph {
+    std::vector<std::string> stop_ids;
+    std::unordered_map<std::string, std::size_t> stop_index_by_id;
+    std::vector<std::size_t> offsets;
+    std::vector<TimeDependentGraphEdge> edges;
+};
+
 struct Network {
     std::vector<Stop> stops;
     std::vector<Trip> trips;
     std::vector<TripStopTime> stop_times;
     std::vector<TripSegmentConnection> trip_segments;
     std::vector<TransferConnection> transfers;
+    TimeDependentGraph time_dependent_graph;
 };
 
 struct BuildOptions {
@@ -95,6 +111,7 @@ private:
 };
 
 std::vector<GtfsFeed> loadFeeds(const std::vector<std::string>& directories);
+TimeDependentGraph buildTimeDependentGraph(const Network& network);
 Network buildNetwork(const std::vector<std::string>& directories, const BuildOptions& options);
 
 }  // namespace gtfs
