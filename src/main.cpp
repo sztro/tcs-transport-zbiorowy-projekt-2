@@ -70,7 +70,7 @@ int main(int argc, char** argv) {
 
         // === TEST time-dependent Dijkstra ===
         if (!network.stops.empty()) {
-            const int num_runs = 50;
+            const int num_runs = 1000;
             double total_duration_ms = 0.0;
             int start_time = 8 * 3600; // 8:00 rano
 
@@ -119,7 +119,7 @@ int main(int argc, char** argv) {
                 auto end_clock = std::chrono::high_resolution_clock::now();
                 std::chrono::duration<double, std::milli> elapsed = end_clock - start_clock;
                 
-                if(i % 10 == 0)
+                if(i % 100 == 0)
                     std::cout << "  Run #" << (i + 1) << ": " << elapsed.count() << " ms\n";
                 total_duration_ms += elapsed.count();
 
