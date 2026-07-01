@@ -8,7 +8,6 @@
 namespace gtfs {
 
 // Guard / stała reprezentująca nieskończoność / nieosiągalny przystanek
-constexpr int kInfinity = std::numeric_limits<int>::max();
 
 std::unordered_map<std::string, int> runEarliestArrivalCSA(
     const Network& network, 

@@ -8,7 +8,6 @@
 
 namespace gtfs {
 
-inline constexpr int kTimeDependentInfinity = std::numeric_limits<int>::max();
 
 std::unordered_map<std::string, int> runEarliestArrivalTimeDependentDijkstra(
     const TimeDependentGraph& graph,

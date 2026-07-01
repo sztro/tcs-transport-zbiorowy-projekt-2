@@ -1,6 +1,7 @@
 #include "gtfs_connections.hpp"
 #include "td_dijkstra.hpp"
 #include "csa.hpp"
+#include "constants.hpp"
 
 #include <filesystem>
 #include <iostream>
@@ -14,8 +15,8 @@ namespace {
 
 void printUsage(const char* program_name) {
     std::cerr << "Usage: " << program_name
-              << " [data_root] [walking_speed_mps] [max_transfer_distance_m] [algorithm]\n"
-              << "Defaults: data_root=./data, walking_speed_mps=1.4, max_transfer_distance_m=500\n";
+              << " [data_root] ] [algorithm]\n"
+              << "Defaults: data_root=./data, algorithm=td_dijkstra\n";
 }
 
 double parseDouble(const char* text, double fallback) {
@@ -29,13 +30,12 @@ double parseDouble(const char* text, double fallback) {
     }
 }
 
+
 }  // namespace
 
 int main(int argc, char** argv) {
     const std::filesystem::path data_root = argc >= 2 ? std::filesystem::path(argv[1]) : std::filesystem::path("data");
-    const double walking_speed_mps = argc >= 3 ? parseDouble(argv[2], 1.4) : 1.4;
-    const double max_transfer_distance_m = argc >= 4 ? parseDouble(argv[3], 500.0) : 500.0;
-    const std::string algorithm = argc >= 5 ? argv[4] : "td_dijkstra";
+    const std::string algorithm = argc >= 3 ? argv[2] : "td_dijkstra";
     if (algorithm != "td_dijkstra" && algorithm != "csa") {
         std::cerr << "Invalid algorithm specified: " << algorithm << "\n";
         printUsage(argv[0]);
@@ -53,8 +53,8 @@ int main(int argc, char** argv) {
     };
 
     gtfs::BuildOptions options;
-    options.walking_speed_mps = walking_speed_mps;
-    options.max_transfer_distance_m = max_transfer_distance_m;
+    options.walking_speed_mps = gtfs::kWalkingSpeedMps;
+    options.max_transfer_distance_m = gtfs::kMaxTransferDistanceMeters;
 
     try {
         const gtfs::Network network = gtfs::buildNetwork(feeds, options);
@@ -83,7 +83,7 @@ int main(int argc, char** argv) {
             
             gtfs::Stop last_source;
             gtfs::Stop last_target;
-            int last_arrival_time = gtfs::kTimeDependentInfinity;
+            int last_arrival_time = gtfs::kInfinity ;
 
             for (int i = 0; i < num_runs; ++i) {
                 // Losowanie przystanku początkowego i końcowego
@@ -131,7 +131,7 @@ int main(int argc, char** argv) {
             std::cout << "Czas odjazdu: 08:00:00\n";
             std::cout << "Czas dojazdu: ";
             
-            if (last_arrival_time == gtfs::kTimeDependentInfinity) {
+            if (last_arrival_time == gtfs::kInfinity) {
                 std::cout << "BRAK POLACZENIA (Cel nieosiagalny)\n";
             } else {
                 int h = (last_arrival_time / 3600) % 24;
