@@ -462,6 +462,31 @@ Network buildNetwork(const std::vector<std::string>& directories, const BuildOpt
     network.stop_times = std::move(merged_stop_times);
     network.transfers = buildTransfers(network.stops, options);
 
+    // Mapowanie rzeczy na int'y
+    std::unordered_map<std::string, int> stop_string_to_int;
+    for (std::size_t i = 0; i < network.stops.size(); ++i) {
+        network.stops[i].int_id = static_cast<int>(i);
+        stop_string_to_int[network.stops[i].stop_id] = static_cast<int>(i);
+    }
+
+    std::unordered_map<std::string, int> trip_string_to_int;
+    for (std::size_t i = 0; i < network.trips.size(); ++i) {
+        network.trips[i].int_id = static_cast<int>(i);
+        trip_string_to_int[network.trips[i].trip_id] = static_cast<int>(i);
+    }
+
+    // Przydzielenie tychże int'ów
+    for (auto& seg : network.trip_segments) {
+        seg.from_stop_int_id = stop_string_to_int[seg.from_stop_id];
+        seg.to_stop_int_id = stop_string_to_int[seg.to_stop_id];
+        seg.trip_int_id = trip_string_to_int[seg.trip_id];
+    }
+
+    for (auto& trans : network.transfers) {
+        trans.from_stop_int_id = stop_string_to_int[trans.from_stop_id];
+        trans.to_stop_int_id = stop_string_to_int[trans.to_stop_id];
+    }
+
     // Posortuj połączenia (do CSA)
     std::sort(network.trip_segments.begin(), network.trip_segments.end(),
         [](const TripSegmentConnection& a, const TripSegmentConnection& b) {

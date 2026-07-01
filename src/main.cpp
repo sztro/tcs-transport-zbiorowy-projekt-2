@@ -70,7 +70,7 @@ int main(int argc, char** argv) {
 
         // === TEST time-dependent Dijkstra ===
         if (!network.stops.empty()) {
-            const int num_runs = 5;
+            const int num_runs = 50;
             double total_duration_ms = 0.0;
             int start_time = 8 * 3600; // 8:00 rano
 
@@ -86,33 +86,47 @@ int main(int argc, char** argv) {
             int last_arrival_time = gtfs::kInfinity ;
 
             for (int i = 0; i < num_runs; ++i) {
-                // Losowanie przystanku początkowego i końcowego
                 const gtfs::Stop& source = network.stops[stop_dist(gen)];
                 const gtfs::Stop& target = network.stops[stop_dist(gen)];
                 
+                int current_arrival_time = gtfs::kInfinity;
+                std::vector<int> arrivals;
+                
                 auto start_clock = std::chrono::high_resolution_clock::now();
-                auto arrivals = std::unordered_map<std::string, int>();
-                if(algorithm == "td_dijkstra") {
-                    arrivals = gtfs::runEarliestArrivalTimeDependentDijkstra(network.time_dependent_graph, source.stop_id, target.stop_id, start_time);
-                } else if(algorithm == "csa") {
-                    arrivals = gtfs::runEarliestArrivalCSA(network, source.stop_id, target.stop_id, start_time);
+                
+                // Oba algorytmy mają teraz ten sam superszybki interfejs
+                if (algorithm == "td_dijkstra") {
+                    arrivals = gtfs::runEarliestArrivalTimeDependentDijkstra(
+                        network.time_dependent_graph, 
+                        source.int_id, 
+                        target.int_id, 
+                        start_time
+                    );
+                } else if (algorithm == "csa") {
+                    arrivals = gtfs::runEarliestArrivalCSA(
+                        network, 
+                        source.int_id, 
+                        target.int_id, 
+                        start_time
+                    );
                 }
-            
+
+                // Odczyt wyniku
+                if (target.int_id >= 0 && target.int_id < arrivals.size()) {
+                    current_arrival_time = arrivals[target.int_id];
+                }
                 
                 auto end_clock = std::chrono::high_resolution_clock::now();
                 std::chrono::duration<double, std::milli> elapsed = end_clock - start_clock;
                 
-                std::cout << "  Run #" << (i + 1) << ": " << elapsed.count() << " ms\n";
+                if(i % 10 == 0)
+                    std::cout << "  Run #" << (i + 1) << ": " << elapsed.count() << " ms\n";
                 total_duration_ms += elapsed.count();
 
-                // Zapisujemy dane jeśli to ostatnia iteracja
                 if (i == num_runs - 1) {
                     last_source = source;
                     last_target = target;
-                    auto it = arrivals.find(target.stop_id);
-                    if (it != arrivals.end()) {
-                        last_arrival_time = it->second;
-                    }
+                    last_arrival_time = current_arrival_time;
                 }
             }
             

@@ -1,39 +1,33 @@
 #include "td_dijkstra.hpp"
+#include "constants.hpp"
 
 #include <functional>
 #include <queue>
 #include <utility>
 #include <vector>
+#include <cassert>
 
 namespace gtfs {
 
-std::unordered_map<std::string, int> runEarliestArrivalTimeDependentDijkstra(
+std::vector<int> runEarliestArrivalTimeDependentDijkstra(
     const TimeDependentGraph& graph,
-    const std::string& source_stop_id,
-    const std::string& target_stop_id,
+    int source_stop_int_id,
+    int target_stop_int_id,
     int start_time_seconds)
 {
-    std::unordered_map<std::string, int> result;
-    if (graph.stop_ids.empty()) {
-        return result;
+
+    const int num_nodes = graph.stop_ids.size();
+    std::vector<int> distance(num_nodes, kInfinity);
+
+    if (source_stop_int_id < 0 || source_stop_int_id >= num_nodes) {
+        assert(false && "Error: Bledne zrodlo dla TD-Dijsktry");
+        return distance;
     }
 
-    const auto source_it = graph.stop_index_by_id.find(source_stop_id);
-    if (source_it == graph.stop_index_by_id.end()) {
-        for (const auto& stop_id : graph.stop_ids) {
-            if (!stop_id.empty()) {
-                result[stop_id] = kTimeDependentInfinity;
-            }
-        }
-        return result;
-    }
+    const bool has_target = target_stop_int_id >= 0 && target_stop_int_id < num_nodes;
+    const int source_index = source_stop_int_id;
+    const int target_index = has_target ? target_stop_int_id : num_nodes;
 
-    const auto target_it = graph.stop_index_by_id.find(target_stop_id);
-    const bool has_target = target_it != graph.stop_index_by_id.end();
-    const std::size_t source_index = source_it->second;
-    const std::size_t target_index = has_target ? target_it->second : graph.stop_ids.size();
-
-    std::vector<int> distance(graph.stop_ids.size(), kTimeDependentInfinity);
     using QueueItem = std::pair<int, std::size_t>;
     std::priority_queue<QueueItem, std::vector<QueueItem>, std::greater<QueueItem>> queue;
 
@@ -57,7 +51,7 @@ std::unordered_map<std::string, int> runEarliestArrivalTimeDependentDijkstra(
             const auto& edge = graph.edges[edge_index];
             const std::size_t to_index = static_cast<std::size_t>(edge.to);
 
-            int candidate_time = kTimeDependentInfinity;
+            int candidate_time = kInfinity;
             if (edge.is_transfer) {
                 if (edge.travel_seconds < 0) {
                     continue;
@@ -80,14 +74,7 @@ std::unordered_map<std::string, int> runEarliestArrivalTimeDependentDijkstra(
         }
     }
 
-    for (std::size_t i = 0; i < graph.stop_ids.size(); ++i) {
-        const auto& stop_id = graph.stop_ids[i];
-        if (!stop_id.empty()) {
-            result[stop_id] = distance[i];
-        }
-    }
-
-    return result;
+    return distance;
 }
 
 }  // namespace gtfs

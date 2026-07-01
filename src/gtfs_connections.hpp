@@ -12,6 +12,7 @@ namespace gtfs {
 
 struct Stop {
     std::string stop_id;
+    int int_id = -1;
     std::string stop_name;
     double stop_lat = 0.0;
     double stop_lon = 0.0;
@@ -27,8 +28,10 @@ struct TripStopTime {
 
 struct Trip {
     std::string route_id;
+    int route_int_id = -1;
     std::string service_id;
     std::string trip_id;
+    int int_id = -1;
     std::string headsign;
     std::string block_id;
     std::string shape_id;
@@ -43,6 +46,9 @@ struct TripSegmentConnection {
     int departure_seconds = -1;
     int arrival_seconds = -1;
     int travel_seconds = -1;
+    int from_stop_int_id = -1;
+    int to_stop_int_id = -1;
+    int trip_int_id = -1;
 };
 
 struct TransferConnection {
@@ -50,6 +56,8 @@ struct TransferConnection {
     std::string to_stop_id;
     double distance_meters = 0.0;
     int walking_seconds = -1;
+    int from_stop_int_id = -1;
+    int to_stop_int_id = -1;
 };
 
 struct TimeDependentGraphEdge {

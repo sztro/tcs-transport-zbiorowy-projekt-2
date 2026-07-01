@@ -9,10 +9,10 @@
 namespace gtfs {
 
 
-std::unordered_map<std::string, int> runEarliestArrivalTimeDependentDijkstra(
+std::vector<int> runEarliestArrivalTimeDependentDijkstra(
     const TimeDependentGraph& graph,
-    const std::string& source_stop_id,
-    const std::string& target_stop_id,
+    int source_stop_int_id,
+    int target_stop_int_id,
     int start_time_seconds
 );
 

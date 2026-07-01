@@ -1,5 +1,6 @@
 #include "gtfs_connections.hpp"
 #include "csa.hpp"
+#include "constants.hpp"
 
 #include <unordered_map>
 #include <vector>
@@ -10,37 +11,29 @@
 
 namespace gtfs {
 
-std::unordered_map<std::string, int> runEarliestArrivalCSA(
+std::vector<int> runEarliestArrivalCSA(
     const Network& network, 
-    const std::string& source_stop_id, 
-    const std::string& target_stop_id,
+    int source_stop_int_id, 
+    int target_stop_int_id,
     int start_time_seconds) 
 {
     // S[x] -> najwcześniejszy czas przyjazdu
-    std::unordered_map<std::string, int> S;
-    for (const auto& stop : network.stops) {
-        S[stop.stop_id] = kInfinity;
-    }
+    std::vector<int> S(network.stops.size(), kInfinity);
 
     // T[x] -> informacja czy udało nam się już wsiąść na kurs x
-    std::unordered_map<std::string, bool> T;
-    for (const auto& trip : network.trips) {
-        T[trip.trip_id] = false;
-    }
+    std::vector<bool> T(network.trips.size(), false);
 
     // Prekalkulacja przesiadek dla szybkiego dostępu po ID przystanku
-    std::unordered_map<std::string, std::vector<TransferConnection>> transfers_from;
+    std::vector<std::vector<TransferConnection>> transfers_from(network.stops.size());
     for (const auto& transfer : network.transfers) {
-        transfers_from[transfer.from_stop_id].push_back(transfer);
+        transfers_from[transfer.from_stop_int_id].push_back(transfer);
     }
 
     // Krok 1 - Setup
     // Inicjalizacja czasu dla przystanku początkowego i jego sąsiadów przy chodzeniu piechotą
-    S[source_stop_id] = start_time_seconds;
-    if (auto it = transfers_from.find(source_stop_id); it != transfers_from.end()) {
-        for (const auto& footpath : it->second) {
-            S[footpath.to_stop_id] = start_time_seconds + footpath.walking_seconds;
-        }
+    S[source_stop_int_id] = start_time_seconds;
+    for (const auto& footpath : transfers_from[source_stop_int_id]) {
+        S[footpath.to_stop_int_id] = start_time_seconds + footpath.walking_seconds;
     }
 
     /// Krok 2: Znalezienie pierwszego połączenia po czasie startowym (binsearch, bo połączenia są posortowane)
@@ -58,26 +51,23 @@ std::unordered_map<std::string, int> runEarliestArrivalCSA(
         const auto& c = *it;
 
         // Wszystko dalej już nas nie interesuje, kończymy
-        if (S[target_stop_id] <= c.departure_seconds) {
+        if (S[target_stop_int_id] <= c.departure_seconds) {
             break;
         }
 
-        if (S[c.from_stop_id] <= c.departure_seconds || T[c.trip_id]) {
+        if (S[c.from_stop_int_id] <= c.departure_seconds || T[c.trip_int_id]) {
             // Connection jest osiągalny, ustawiamy rzeczy
-            T[c.trip_id] = true;
+            T[c.trip_int_id] = true;
 
-            if(c.arrival_seconds >= S[c.to_stop_id]) {
+            if(c.arrival_seconds >= S[c.to_stop_int_id]) {
                 continue;
             }
 
             // Przeglądamy każde przejście piesze z carr_stop
-            if (auto it = transfers_from.find(c.to_stop_id); it != transfers_from.end()) {
-                for (const auto& f : it->second) {
-                    int arrival_by_foot = c.arrival_seconds + f.walking_seconds;
-                    // S[farr_stop] = min{S[farr_stop], carr_time + fdur}
-                    if (arrival_by_foot < S[f.to_stop_id]) {
-                        S[f.to_stop_id] = arrival_by_foot;
-                    }
+            for (const auto& f : transfers_from[c.to_stop_int_id]) {
+                int arrival_by_foot = c.arrival_seconds + f.walking_seconds;
+                if (arrival_by_foot < S[f.to_stop_int_id]) {
+                    S[f.to_stop_int_id] = arrival_by_foot;
                 }
             }
         }
