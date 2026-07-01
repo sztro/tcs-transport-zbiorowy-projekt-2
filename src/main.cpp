@@ -3,6 +3,7 @@
 #include "csa.hpp"
 #include "raptor.hpp"
 #include "constants.hpp"
+#include "bench.hpp"
 
 #include <filesystem>
 #include <iostream>
@@ -36,13 +37,7 @@ double parseDouble(const char* text, double fallback) {
 
 int main(int argc, char** argv) {
     const std::filesystem::path data_root = argc >= 2 ? std::filesystem::path(argv[1]) : std::filesystem::path("data");
-    const std::string algorithm = argc >= 3 ? argv[2] : "td_dijkstra";
-    if (algorithm != "td_dijkstra" && algorithm != "csa" && algorithm != "raptor") {
-        std::cerr << "Invalid algorithm specified: " << algorithm << "\n";
-        printUsage(argv[0]);
-        return 1;
-    }
-    if (argc > 5) {
+    if (argc > 2) {
         printUsage(argv[0]);
         return 1;
     }
@@ -69,103 +64,57 @@ int main(int argc, char** argv) {
         std::cout << "TD graph nodes: " << network.time_dependent_graph.stop_ids.size() << "\n";
         std::cout << "TD graph edges: " << network.time_dependent_graph.edges.size() << "\n";
 
-        // === TEST time-dependent Dijkstra ===
+        // =================
+        // === BENCHMARK ===
+        // =================
         if (!network.stops.empty()) {
             const int num_runs = 1000;
-            double total_duration_ms = 0.0;
-            int start_time = 8 * 3600; // 8:00 rano
+            int start_time = 8 * 3600; // 8:00
 
-            // Inicjalizacja rzeczy do losowania
+            std::cout << "\nGenerating " << num_runs << " S->T queries...\n";
             std::random_device rd;
             std::mt19937 gen(rd());
             std::uniform_int_distribution<std::size_t> stop_dist(0, network.stops.size() - 1);
-            
-            std::cout << "\nProbing " << algorithm << " (" << num_runs << " random S->T queries)...\n";
-            
-            gtfs::Stop last_source;
-            gtfs::Stop last_target;
-            int last_arrival_time = gtfs::kInfinity ;
+            std::uniform_int_distribution<int> time_dist(start_time - 3600, start_time + 3600); 
 
+            // ADDED gtfs:: prefix here
+            std::vector<gtfs::RoutingQuery> queries;
+            queries.reserve(num_runs);
             for (int i = 0; i < num_runs; ++i) {
-                const gtfs::Stop& source = network.stops[stop_dist(gen)];
-                const gtfs::Stop& target = network.stops[stop_dist(gen)];
-                
-                int current_arrival_time = gtfs::kInfinity;
-                std::vector<int> arrivals;
-                
-                auto start_clock = std::chrono::high_resolution_clock::now();
-                
-                // Oba algorytmy mają teraz ten sam superszybki interfejs
-                if (algorithm == "td_dijkstra") {
-                    arrivals = gtfs::runEarliestArrivalTimeDependentDijkstra(
-                        network.time_dependent_graph, 
-                        source.int_id, 
-                        target.int_id, 
-                        start_time
-                    );
-                } else if (algorithm == "csa") {
-                    arrivals = gtfs::runEarliestArrivalCSA(
-                        network, 
-                        source.int_id, 
-                        target.int_id, 
-                        start_time
-                    );
-                } else if (algorithm == "raptor") {
-                    arrivals = gtfs::runEarliestArrivalRAPTOR(
-                        network, 
-                        source.int_id, 
-                        target.int_id, 
-                        start_time
-                    );
-                }
-
-                // Odczyt wyniku
-                if (target.int_id >= 0 && target.int_id < arrivals.size()) {
-                    current_arrival_time = arrivals[target.int_id];
-                }
-                
-                auto end_clock = std::chrono::high_resolution_clock::now();
-                std::chrono::duration<double, std::milli> elapsed = end_clock - start_clock;
-                
-                if(i % 100 == 0)
-                    std::cout << "  Run #" << (i + 1) << ": " << elapsed.count() << " ms\n";
-                total_duration_ms += elapsed.count();
-
-                if (i == num_runs - 1) {
-                    last_source = source;
-                    last_target = target;
-                    last_arrival_time = current_arrival_time;
-                }
+                queries.push_back({
+                    network.stops[stop_dist(gen)].int_id,
+                    network.stops[stop_dist(gen)].int_id,
+                    time_dist(gen) 
+                });
             }
-            
-            std::cout << "---------------------------------------\n";
-            std::cout << "Total time for " << num_runs << " queries: " << total_duration_ms << " ms\n";
-            std::cout << "Average time per query: " << (total_duration_ms / num_runs) << " ms\n";
 
-            std::cout << "\n--- Szczegoly ostatniego zapytania ---\n";
-            std::cout << "Skad:  " << last_source.stop_name 
-                      << " (ID: " << last_source.stop_id << ") "
-                      << "[Lat: " << last_source.stop_lat << ", Lon: " << last_source.stop_lon << "]\n";
-            std::cout << "Dokad: " << last_target.stop_name 
-                      << " (ID: " << last_target.stop_id << ") "
-                      << "[Lat: " << last_target.stop_lat << ", Lon: " << last_target.stop_lon << "]\n";
-            
-            std::cout << "Czas odjazdu: 08:00:00\n";
-            std::cout << "Czas dojazdu: ";
-            
-            if (last_arrival_time == gtfs::kInfinity) {
-                std::cout << "BRAK POLACZENIA (Cel nieosiagalny)\n";
-            } else {
-                int h = (last_arrival_time / 3600) % 24;
-                int m = (last_arrival_time / 60) % 60;
-                int s = last_arrival_time % 60;
-                
-                // Ładne formatowanie HH:MM:SS
-                std::cout << std::setfill('0') << std::setw(2) << h << ":" 
-                          << std::setfill('0') << std::setw(2) << m << ":" 
-                          << std::setfill('0') << std::setw(2) << s << "\n";
-            }
-            std::cout << "---------------------------------------\n";
+            std::cout << "Starting benchmarks...\n";
+            std::cout << std::string(80, '-') << "\n";
+
+            // 1. TD-Dijkstra
+            // ADDED gtfs:: to runBenchmark and RoutingQuery
+            auto res_dijkstra = gtfs::runBenchmark("TD-Dijkstra", queries, [&](const gtfs::RoutingQuery& q) {
+                gtfs::runEarliestArrivalTimeDependentDijkstra(
+                    network.time_dependent_graph, q.source_id, q.target_id, q.start_time);
+            });
+            // ADDED gtfs:: to printResult
+            gtfs::printResult(res_dijkstra);
+
+            // 2. CSA
+            auto res_csa = gtfs::runBenchmark("CSA", queries, [&](const gtfs::RoutingQuery& q) {
+                gtfs::runEarliestArrivalCSA(
+                    network, q.source_id, q.target_id, q.start_time);
+            });
+            gtfs::printResult(res_csa);
+
+            // 3. RAPTOR
+            auto res_raptor = gtfs::runBenchmark("RAPTOR", queries, [&](const gtfs::RoutingQuery& q) {
+                gtfs::runEarliestArrivalRAPTOR(
+                    network, q.source_id, q.target_id, q.start_time);
+            });
+            gtfs::printResult(res_raptor);
+
+            std::cout << std::string(80, '-') << "\n";
         }
     } catch (const std::exception& error) {
         std::cerr << "Failed to build network: " << error.what() << "\n";
