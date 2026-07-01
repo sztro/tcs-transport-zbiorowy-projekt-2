@@ -1,6 +1,7 @@
 #include "gtfs_connections.hpp"
 #include "td_dijkstra.hpp"
 #include "csa.hpp"
+#include "raptor.hpp"
 #include "constants.hpp"
 
 #include <filesystem>
@@ -36,7 +37,7 @@ double parseDouble(const char* text, double fallback) {
 int main(int argc, char** argv) {
     const std::filesystem::path data_root = argc >= 2 ? std::filesystem::path(argv[1]) : std::filesystem::path("data");
     const std::string algorithm = argc >= 3 ? argv[2] : "td_dijkstra";
-    if (algorithm != "td_dijkstra" && algorithm != "csa") {
+    if (algorithm != "td_dijkstra" && algorithm != "csa" && algorithm != "raptor") {
         std::cerr << "Invalid algorithm specified: " << algorithm << "\n";
         printUsage(argv[0]);
         return 1;
@@ -104,6 +105,13 @@ int main(int argc, char** argv) {
                     );
                 } else if (algorithm == "csa") {
                     arrivals = gtfs::runEarliestArrivalCSA(
+                        network, 
+                        source.int_id, 
+                        target.int_id, 
+                        start_time
+                    );
+                } else if (algorithm == "raptor") {
+                    arrivals = gtfs::runEarliestArrivalRAPTOR(
                         network, 
                         source.int_id, 
                         target.int_id, 

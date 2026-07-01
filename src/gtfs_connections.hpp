@@ -60,6 +60,17 @@ struct TransferConnection {
     int to_stop_int_id = -1;
 };
 
+struct RaptorTrip {
+    int trip_int_id = -1;
+    std::vector<int> stop_times; 
+};
+
+struct RaptorRoute {
+    int route_int_id = -1;
+    std::vector<int> stops; 
+    std::vector<RaptorTrip> trips; 
+};
+
 struct TimeDependentGraphEdge {
     std::uint32_t to = 0;
     int departure_seconds = -1;
@@ -82,6 +93,8 @@ struct Network {
     std::vector<TripSegmentConnection> trip_segments;
     std::vector<TransferConnection> transfers;
     TimeDependentGraph time_dependent_graph;
+    std::vector<RaptorRoute> raptor_routes;
+    std::vector<std::vector<int>> routes_serving_stop;
 };
 
 struct BuildOptions {

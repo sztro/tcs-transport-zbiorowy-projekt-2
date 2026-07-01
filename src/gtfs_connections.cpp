@@ -486,15 +486,90 @@ Network buildNetwork(const std::vector<std::string>& directories, const BuildOpt
         trans.from_stop_int_id = stop_string_to_int[trans.from_stop_id];
         trans.to_stop_int_id = stop_string_to_int[trans.to_stop_id];
     }
+    
+    network.time_dependent_graph = buildTimeDependentGraph(network);
 
-    // Posortuj połączenia (do CSA)
+
+    // ==========================================
+    // RZECZY DO CSA
+    // ==========================================
+    // Posortuj połączenia
     std::sort(network.trip_segments.begin(), network.trip_segments.end(),
         [](const TripSegmentConnection& a, const TripSegmentConnection& b) {
             return a.departure_seconds < b.departure_seconds;
         }
     );
 
-    network.time_dependent_graph = buildTimeDependentGraph(network);
+
+    // ==========================================
+    // RZECZY DO RAPTORA
+    // ==========================================
+
+    // 1. Grupujemy segmenty po trip_int_id
+    std::unordered_map<int, std::vector<TripSegmentConnection>> segments_by_trip;
+    for (const auto& seg : network.trip_segments) {
+        segments_by_trip[seg.trip_int_id].push_back(seg);
+    }
+
+    // 2. Znajdujemy unikalne stop sequences / trasy
+    std::unordered_map<std::string, RaptorRoute> route_map;
+    int next_route_id = 0;
+
+    for (auto& [trip_id, segments] : segments_by_trip) {
+        std::sort(segments.begin(), segments.end(), [](const auto& a, const auto& b) {
+            return a.departure_seconds < b.departure_seconds;
+        });
+
+        std::vector<int> stop_sequence;
+        std::vector<int> stop_times;
+
+        stop_sequence.push_back(segments.front().from_stop_int_id);
+        stop_times.push_back(segments.front().departure_seconds);
+
+        for (const auto& seg : segments) {
+            stop_sequence.push_back(seg.to_stop_int_id);
+            stop_times.push_back(seg.arrival_seconds);
+        }
+
+        std::string sequence_key = "";
+        for (int stop : stop_sequence) {
+            sequence_key += std::to_string(stop) + "-";
+        }
+
+        if (route_map.find(sequence_key) == route_map.end()) {
+            RaptorRoute new_route;
+            new_route.route_int_id = next_route_id++;
+            new_route.stops = stop_sequence;
+            route_map[sequence_key] = new_route;
+        }
+
+        RaptorTrip r_trip;
+        r_trip.trip_int_id = trip_id;
+        r_trip.stop_times = stop_times;
+        route_map[sequence_key].trips.push_back(r_trip);
+    }
+
+    // 3. Dodajemy trasy do network, potem sortujemy kursy w ich obrębie
+    network.raptor_routes.reserve(route_map.size());
+    for (auto& [key, route] : route_map) {
+        std::sort(route.trips.begin(), route.trips.end(), [](const RaptorTrip& a, const RaptorTrip& b) {
+            return a.stop_times[0] < b.stop_times[0];
+        });
+        
+        route.route_int_id = network.raptor_routes.size(); 
+        network.raptor_routes.push_back(std::move(route));
+    }
+
+    // 4. Uzupełniamy routes_serving_stop
+    network.routes_serving_stop.resize(network.stops.size());
+    for (const auto& route : network.raptor_routes) {
+        for (int stop_id : route.stops) {
+            auto& served = network.routes_serving_stop[stop_id];
+            if (std::find(served.begin(), served.end(), route.route_int_id) == served.end()) {
+                served.push_back(route.route_int_id);
+            }
+        }
+    }
 
     return network;
 }
