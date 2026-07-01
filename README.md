@@ -14,3 +14,6 @@ Zaimplementowane algorytmy:
 2. Następnie uruchomić powstały plik wykonywalny `./main`. \
 Jako argument bierze katalog, w którym znajdują się foldery `GTFS_KRK_A`, `GTFS_KRK_M` oraz `GTFS_KRK_T`. W przypadku braku argumentów przyjmuje on, że te foldery znajdują się w lokalnym katalogu `data/`.
 3. Powinien się uruchomić benchmark, pokazujący odpowiednie statystyki dotyczące czasu działania każdego z algorytmów.
+
+# Dane
+Algorytmy były testowane na danych udostępnionych przez Zarząd Transportu Publicznego w Krakowie (`gtfs.ztp.krakow.pl`). Odpowiednie rozpakowane pliki umieszczone są w katalogu `data/`. 
