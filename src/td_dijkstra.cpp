@@ -41,7 +41,7 @@ std::vector<int> runEarliestArrivalTimeDependentDijkstra(
         if (current_time != distance[node_index]) {
             continue;
         }
-        if (has_target && node_index == target_index) {
+        if (has_target && node_index == static_cast<std::size_t>(target_index)) {
             break;
         }
 

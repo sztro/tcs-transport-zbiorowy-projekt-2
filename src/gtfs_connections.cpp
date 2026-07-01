@@ -38,7 +38,7 @@ int safeSeconds(const std::optional<int>& value) {
     return value.has_value() ? *value : -1;
 }
 
-double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
+double calcHaversineMeters(double lat1, double lon1, double lat2, double lon2) {
     constexpr double kEarthRadiusMeters = 6371000.0;
     const double lat1_rad = lat1 * M_PI / 180.0;
     const double lat2_rad = lat2 * M_PI / 180.0;
@@ -63,7 +63,7 @@ std::vector<TransferConnection> buildTransfers(const std::vector<Stop>& stops, c
             if (to.stop_id.empty()) {
                 continue;
             }
-            const double distance = haversineMeters(from.stop_lat, from.stop_lon, to.stop_lat, to.stop_lon);
+            const double distance = calcHaversineMeters(from.stop_lat, from.stop_lon, to.stop_lat, to.stop_lon);
             if (distance > options.max_transfer_distance_m) {
                 continue;
             }
@@ -146,7 +146,7 @@ std::optional<int> GtfsFeed::parseTimeToSeconds(const std::string& value) {
 }
 
 double GtfsFeed::haversineMeters(double lat1, double lon1, double lat2, double lon2) {
-    return haversineMeters(lat1, lon1, lat2, lon2);
+    return calcHaversineMeters(lat1, lon1, lat2, lon2);
 }
 
 void GtfsFeed::loadStops(const std::string& filePath) {
@@ -278,6 +278,8 @@ bool GtfsFeed::loadFromDirectory(const std::string& directory) {
 }
 
 Network GtfsFeed::buildPartialNetwork(const BuildOptions& options) const {
+    (void)options;
+    
     Network network;
     network.stops = stops_;
     network.trips = trips_;

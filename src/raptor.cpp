@@ -12,6 +12,7 @@ std::vector<int> runEarliestArrivalRAPTOR(
     int target_stop_int_id,
     int start_time_seconds) 
 {
+    (void)target_stop_int_id;
     const int num_stops = network.stops.size();
     std::vector<int> earliest_arrival(num_stops, kInfinity);
     
@@ -42,8 +43,8 @@ std::vector<int> runEarliestArrivalRAPTOR(
                 const auto& route = network.raptor_routes[route_id];
                 for (size_t i = 0; i < route.stops.size(); ++i) {
                     if (route.stops[i] == stop_id) {
-                        if (active_routes.find(route_id) == active_routes.end() || i < active_routes[route_id]) {
-                            active_routes[route_id] = i;
+                        if (active_routes.find(route_id) == active_routes.end() || static_cast<int>(i) < active_routes[route_id]) {
+                            active_routes[route_id] = static_cast<int>(i);
                         }
                         break;
                     }

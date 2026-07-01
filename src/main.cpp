@@ -21,18 +21,6 @@ void printUsage(const char* program_name) {
               << "Defaults: data_root=./data, algorithm=td_dijkstra\n";
 }
 
-double parseDouble(const char* text, double fallback) {
-    if (text == nullptr || *text == '\0') {
-        return fallback;
-    }
-    try {
-        return std::stod(text);
-    } catch (...) {
-        return fallback;
-    }
-}
-
-
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -77,7 +65,6 @@ int main(int argc, char** argv) {
             std::uniform_int_distribution<std::size_t> stop_dist(0, network.stops.size() - 1);
             std::uniform_int_distribution<int> time_dist(start_time - 3600, start_time + 3600); 
 
-            // ADDED gtfs:: prefix here
             std::vector<gtfs::RoutingQuery> queries;
             queries.reserve(num_runs);
             for (int i = 0; i < num_runs; ++i) {
@@ -92,12 +79,10 @@ int main(int argc, char** argv) {
             std::cout << std::string(80, '-') << "\n";
 
             // 1. TD-Dijkstra
-            // ADDED gtfs:: to runBenchmark and RoutingQuery
             auto res_dijkstra = gtfs::runBenchmark("TD-Dijkstra", queries, [&](const gtfs::RoutingQuery& q) {
                 gtfs::runEarliestArrivalTimeDependentDijkstra(
                     network.time_dependent_graph, q.source_id, q.target_id, q.start_time);
             });
-            // ADDED gtfs:: to printResult
             gtfs::printResult(res_dijkstra);
 
             // 2. CSA
