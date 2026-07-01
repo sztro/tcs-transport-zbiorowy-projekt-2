@@ -1,0 +1,2 @@
+feed_publisher_name,feed_publisher_url,feed_lang,feed_start_date,feed_end_date,feed_version,feed_contact_email,feed_contact_url
+"Miejskie Przedsiębiorstwo Komunikacyjne S.A. w Krakowie",https://gtfs.ztp.krakow.pl,pl,20260629,20270131,"20260629","webmaster@mpk.krakow.pl",""

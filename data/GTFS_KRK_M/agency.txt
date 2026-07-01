@@ -1,0 +1,2 @@
+﻿agency_id,agency_name,agency_url,agency_timezone,agency_lang,agency_phone,agency_fare_url,agency_email
+Mobilis,"Mobilis Sp. z o.o.",https://mobilis.pl,Europe/Warsaw,pl,"(+48) 22 478 21 74",,"mobilis@mobilis.pl"
